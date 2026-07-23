@@ -3,10 +3,11 @@
 #include <conio.h> 
 #include <cstdlib>
 #include <ctime>
+#include <windows.h>
 using namespace std;
 
 //hang doi tr loi cau hoi (viet theo mang cho de fisher-yates) va toi da dua vao 10 tu
-//cau nao duoc xao len dau se duoc tra loi, sau khi trl xog se them v�o stack va xoa di va them cau khac vao cuoi  
+//cau nao duoc xao len dau se duoc tra loi, sau khi trl xog se them vào stack va xoa di va them cau khac vao cuoi  
 typedef struct queueVocabulary {
 	char Voc[50];
 	char A[50]; 
@@ -35,27 +36,39 @@ class Vocabulary {
 		int front;
 		int rear; 
 		int num; 
+		
+		Trie *dictRef;   // con tro toi tu dien, gan 1 lan luc khoi tao
+		int loadIndex;   // vi tri tu tiep theo se nap vao queue
 	public: 
 		Vocabulary();
 		~Vocabulary();
+		
 		void moduleExam ();
+		
 		void push(char Voca[], char CA[], char YA[]); //them vao dinh 
-		// pop //xoa dinh // chac dech can xai 
+		// pop //xoa dinh // t?m ko xai 
 		void vAHistory (); 
 		sV *createNode(char Voca[], char CA[], char YA[]); 
+		
 		void moduleSaved (char Voca[], char CA[], char YA[]);//Chuyen nhung cau da tra loi vao stack 
+		void setDictionary(Trie &dict);
 		void enQueue (char Voca[],char A[],char B[],char C[],char D[],char CA[]);// phuc vu cho module truyen cau hoi 
 		void deQueue();// xoa cuoi 
+		void moduleLoadFromTrie();
 		void shuffle();// xao tron; // nhap thoi dung chot cho nay nua 
-}; 
+		
+};
+
 Vocabulary::Vocabulary(){
 	top=NULL;
 	size=0; 
 	front=-1;
 	rear=-1;
 	num=0; 
+	dictRef=nullptr;
+	loadIndex=0;
 	srand(time(NULL));
-} 
+}
 
 Vocabulary::~Vocabulary(){
 	while (top!=NULL){
@@ -84,12 +97,13 @@ sV *Vocabulary::createNode(char Voca[], char CA[], char YA[]) {
 void Vocabulary::vAHistory(){
 	sV*p = top;
 	while (p!=NULL){
-		cout<<p->Voc<<endl; 
-		cout<<p->correctAnwser<<endl;
-		cout<<p->yourAnwser<<endl; 
+		cout<<"The question: "<< p->Voc<<endl; 
+		cout<<"Correct anwser: "<< p->correctAnwser<<endl;
+		cout<<"Your anwser: "<< p->yourAnwser<<endl; 
+		cout<<"\n"; 
 		p=p->next; 
 	} 
-	cout<< "Enter to return!"<<endl;
+	cout<< "Press Enter to return!"<<endl;
 	cin.ignore(1000, '\n');
 	int a=_getch();
 	if (a==13){
@@ -161,9 +175,9 @@ void Vocabulary::deQueue(){
 	}
 	else {
 		front++;
-		num--;
-		// module chuyen question vao queue them (chua code) 
+		num--; 
 	} 
+	// module chuyen question vao queue them (chua code)
 }
 
 void Vocabulary::moduleSaved(char Voca[], char CA[], char YA[]){
@@ -174,12 +188,12 @@ void Vocabulary::moduleSaved(char Voca[], char CA[], char YA[]){
 	else{
 		push(Voca,CA,YA);
 		deQueue();
+		moduleLoadFromTrie();
 	} 
 }
 
 void Vocabulary::moduleExam(){
-	while (1)
-	{
+	while (1){
 		if (num == 0){
 			cout<<"There aren't any more questions."<<endl;
 			return;
@@ -192,7 +206,7 @@ void Vocabulary::moduleExam(){
 					"B:"<< examEnglish[front].B << "	" << 
 					"C:"<< examEnglish[front].C << "	" << 
 					"D:"<< examEnglish[front].D << endl;
-			cout << "ESC to exit!" <<endl; 
+			cout << "Press ESC to exit!" <<endl; 
 			cin.ignore(1000, '\n');
 			char Anwser = _getch();
 			if (Anwser == 27) 
@@ -207,39 +221,42 @@ void Vocabulary::moduleExam(){
 	    		case 'A':
 	   			case 'a':
 	       			if (strcmp(examEnglish[front].A, examEnglish[front].correctAnswer) == 0)
-	            		cout << "Correct!" << endl;
+	            		cout << "Correct!" ;
 	        		else
-	            		cout << "Wrong!" << endl;
-	        		moduleSaved(examEnglish[front].Voc, examEnglish[front].correctAnswer, examEnglish[front].A);
-	        		break; 
-	
+	            		cout << "Wrong! Correct anwser: " << examEnglish[front].correctAnswer;
+					moduleSaved(examEnglish[front].Voc, examEnglish[front].correctAnswer, examEnglish[front].A);
+					Sleep(1000);
+						break;
 			    case 'B':
 			    case 'b':
 			        if (strcmp(examEnglish[front].B, examEnglish[front].correctAnswer) == 0)
-			            cout << "Correct!" << endl;
+			            cout << "Correct!";
 			        else
-			            cout << "Wrong!" << endl;
-			        	moduleSaved(examEnglish[front].Voc, examEnglish[front].correctAnswer, examEnglish[front].B);
+			            cout << "Wrong! Correct anwser: " << examEnglish[front].correctAnswer;
+			       	moduleSaved(examEnglish[front].Voc, examEnglish[front].correctAnswer, examEnglish[front].B);
+			   		Sleep(1000);
 			        break;
 			
 			    case 'C':
 			    case 'c':
 			        if (strcmp(examEnglish[front].C, examEnglish[front].correctAnswer) == 0)
-			            cout << "Correct!" << endl;
+			            cout << "Correct!";
 			        else
-			            cout << "Wrong!" << endl;
+			        	cout << "Wrong! Correct anwser: " << examEnglish[front].correctAnswer; 
 			       	moduleSaved(examEnglish[front].Voc, examEnglish[front].correctAnswer, examEnglish[front].C);
+			       	Sleep(1000);
 			        break;
 			
 			    case 'D':
 			    case 'd':
 			        if (strcmp(examEnglish[front].D, examEnglish[front].correctAnswer) == 0)
-			            cout << "Correct!" << endl;
+			            cout << "Correct!";
 			        else
-			            cout << "Wrong!" << endl;
-			        	moduleSaved(examEnglish[front].Voc, examEnglish[front].correctAnswer, examEnglish[front].D);
+			        	cout << "Wrong! Correct anwser: " << examEnglish[front].correctAnswer;
+			        moduleSaved(examEnglish[front].Voc, examEnglish[front].correctAnswer, examEnglish[front].D);
+			        Sleep(1000);
 			        break;
-				} 
+			} 
 		} 
 	} 		
 } 
@@ -272,6 +289,10 @@ void Vocabulary::shuffle() {
         strcpy(ans[i], ans[j]);
         strcpy(ans[j], temp);
     }
+    strcpy (examEnglish[front].A,ans[0]);
+    strcpy (examEnglish[front].B,ans[1]);
+    strcpy (examEnglish[front].C,ans[2]);
+    strcpy (examEnglish[front].D,ans[3]);
 }
 
 int menu(Vocabulary &t) {
@@ -310,8 +331,55 @@ int menu(Vocabulary &t) {
     }
 }
 
+void Vocabulary::moduleLoadFromTrie() {
+    if (dictRef == nullptr) return; // chua gan tu dien thi thoi
 
-int main() {
-	Vocabulary t;
-    menu(t); 
+    const vector<pair<string, string>> &data = dictRef->getAllWords();
+    int total = (int)data.size();
+    if (total == 0 || loadIndex >= total) return; // het tu de nap
+
+    string word = data[loadIndex].first;
+    string correctMeaning = data[loadIndex].second;
+    loadIndex++;
+
+    vector<string> wrongChoices;
+    int guard = 0;
+    while (wrongChoices.size() < 3 && guard < 100) {
+        int r = rand() % total;
+        bool trung = (data[r].second == correctMeaning);
+        for (auto &w : wrongChoices)
+            if (w == data[r].second) trung = true;
+        if (!trung) wrongChoices.push_back(data[r].second);
+        guard++;
+    }
+    while (wrongChoices.size() < 3) wrongChoices.push_back("N/A");
+
+    string choices[4] = {correctMeaning, wrongChoices[0], wrongChoices[1], wrongChoices[2]};
+    for (int k = 3; k > 0; k--) {
+        int j = rand() % (k + 1);
+        swap(choices[k], choices[j]);
+    }
+
+    char Voc[50], A[50], B[50], C[50], D[50], CA[50];
+    strncpy(Voc, word.c_str(), 49); Voc[49] = '\0';
+    strncpy(A, choices[0].c_str(), 49); A[49] = '\0';
+    strncpy(B, choices[1].c_str(), 49); B[49] = '\0';
+    strncpy(C, choices[2].c_str(), 49); C[49] = '\0';
+    strncpy(D, choices[3].c_str(), 49); D[49] = '\0';
+    strncpy(CA, correctMeaning.c_str(), 49); CA[49] = '\0';
+
+    enQueue(Voc, A, B, C, D, CA);
 }
+
+void Vocabulary::setDictionary(Trie &dict) {
+    dictRef = &dict;
+}
+
+// Update (23/07/2026) 
+// Note:  const vector<pair<string, string>>& getAllWords() const { return allWords; } này thêm vao class Trie 
+// hàm setDictionary dung de gan dia chi cua doi tuong trie vao con tro dictRef 
+// hàm moduleLoadFromTrie nap cau hoi vao queue moi lan goi nap 1 lan
+// Trie *dictRef;   // con tro toi tu dien, int loadIndex; vi tri tu tiep theo se nap (Hai thuoc tinh moi) 
+// tao nhung khoang nghi giua nhung lan tra loi
+// lich su tra loi de nhin hon 
+
