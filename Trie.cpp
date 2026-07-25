@@ -6,6 +6,23 @@
 #include <iostream>
 
 using namespace std;
+// ============================================================================
+// MOI: Chuyen doi ky tu <-> chi so trong mang children[], mo rong tu 26 chu
+// cai (a-z) sang ho tro them dau cach va dau gach ngang cho cum tu nhieu tieng.
+// Dat static (chi dung noi bo file nay), khong can khai bao trong Dictionary.h.
+// ============================================================================
+static int charToIndex(char ch) {
+    if (ch >= 'a' && ch <= 'z') return ch - 'a';
+    if (ch == ' ') return 26;
+    if (ch == '-') return 27;
+    return -1; // Ky tu khong hop le
+}
+
+static char indexToChar(int index) {
+    if (index >= 0 && index <= 25) return static_cast<char>('a' + index);
+    if (index == 26) return ' ';
+    return '-'; // index == 27
+}
 
 // ============================================================================
 // Initialize / normalize string
@@ -54,9 +71,9 @@ void Trie::insert(const string& word, const string& meaning,
 
     TrieNode* current = root.get();
     for (char ch : cleanWord) {
-        if (ch < 'a' || ch > 'z') return; // Invalid data -> ignore the whole word
+        int index = charToIndex(ch);
+        if (index == -1) return; // Ky tu khong hop le (khong phai a-z, space, '-') -> bo qua ca tu
 
-        int index = ch - 'a';
         if (!current->children[index]) {
             current->children[index] = unique_ptr<TrieNode>(new TrieNode());
         }
@@ -159,9 +176,9 @@ bool Trie::searchExact(const string& word, string& outMeaning,
     string cleanWord = normalize(word);
     TrieNode* current = root.get();
 
-    for (char ch : cleanWord) {
-        if (ch < 'a' || ch > 'z') return false;
-        int index = ch - 'a';
+   for (char ch : cleanWord) {
+        int index = charToIndex(ch);
+        if (index == -1) return false;
         if (!current->children[index]) return false;
         current = current->children[index].get();
     }
@@ -191,7 +208,7 @@ void Trie::dfsCollect(TrieNode* node, string& currentWord,
     // Traverse a->z for natural alphabetical order
     for (int i = 0; i < ALPHABET_SIZE; ++i) {
         if (node->children[i]) {
-            currentWord.push_back(static_cast<char>('a' + i));
+            currentWord.push_back(indexToChar(i));
             dfsCollect(node->children[i].get(), currentWord, results, limit);
             currentWord.pop_back();
 
