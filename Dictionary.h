@@ -7,7 +7,7 @@
 // ============================================================================
 // CAC HANG SO DUNG CHUNG
 // ============================================================================
-constexpr int ALPHABET_SIZE = 26;        // 26 chu cai a-z
+constexpr int ALPHABET_SIZE = 28;        // 26 chu cai a-z + dau cach (space) + dau gach ngang (-)
 constexpr int QUIZ_QUEUE_CAPACITY = 10;  // So cau hoi toi da trong hang doi quiz
 constexpr int MAX_STR_LEN = 100;         // Do dai toi da cho 1 tu / 1 dap an (char[])
 
