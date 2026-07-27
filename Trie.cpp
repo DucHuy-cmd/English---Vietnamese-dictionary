@@ -216,3 +216,137 @@ void Trie::dfsCollect(TrieNode* node, string& currentWord,
         }
     }
 }
+vector<pair<string, string>> Trie::getPrefixSuggestions(const string& prefix, int limit) const {
+    vector<pair<string, string>> results;
+    string cleanPrefix = normalize(prefix);
+
+    TrieNode* current = root.get();
+     for (char ch : cleanPrefix) {
+        int index = charToIndex(ch);
+        if (index == -1) return results;
+        if (!current->children[index]) return results;
+        current = current->children[index].get();
+    }
+
+    string wordBuilder = cleanPrefix;
+    dfsCollect(current, wordBuilder, results, limit);
+    return results;
+}
+
+// ============================================================================
+// Levenshtein Distance - Dynamic programming, memory optimization O(min(n,m))
+// ============================================================================
+int Trie::calculateLevenshtein(const string& s1, const string& s2) {
+    const size_t n = s1.size();
+    const size_t m = s2.size();
+    if (n == 0) return static_cast<int>(m);
+    if (m == 0) return static_cast<int>(n);
+
+    vector<int> previousRow(m + 1);
+    vector<int> currentRow(m + 1);
+
+    for (size_t j = 0; j <= m; ++j) previousRow[j] = static_cast<int>(j);
+
+    for (size_t i = 1; i <= n; ++i) {
+        currentRow[0] = static_cast<int>(i);
+        for (size_t j = 1; j <= m; ++j) {
+            if (s1[i - 1] == s2[j - 1]) {
+                currentRow[j] = previousRow[j - 1];
+            } else {
+                int deleteCost = previousRow[j] + 1;
+                int insertCost = currentRow[j - 1] + 1;
+                int replaceCost = previousRow[j - 1] + 1;
+                currentRow[j] = min({deleteCost, insertCost, replaceCost});
+            }
+        }
+        swap(previousRow, currentRow);
+    }
+    return previousRow[m];
+}
+
+// getSpellingSuggestions() - pruning heuristic: ignore candidates with lengths
+// differing too much from the wrong word, avoiding O(n*m) DP on
+// the entire dictionary when the number of words is large.
+vector<pair<string, int>> Trie::getSpellingSuggestions(const string& wrongWord, int limit) const {
+    string cleanWrong = normalize(wrongWord);
+    const int wrongLen = static_cast<int>(cleanWrong.size());
+    const int maxAllowedDistance = max(2, wrongLen / 3 + 1);
+
+    vector<pair<string, int>> candidates;
+    candidates.reserve(allWords.size());
+
+    for (const auto& entry : allWords) {
+        const string& dictWord = entry.word;
+        const int dictLen = static_cast<int>(dictWord.size());
+
+        // Pruning heuristic based on length difference
+        if (abs(dictLen - wrongLen) > maxAllowedDistance) continue;
+
+        int distance = calculateLevenshtein(cleanWrong, dictWord);
+        if (distance <= maxAllowedDistance) {
+            candidates.emplace_back(dictWord, distance);
+        }
+    }
+
+    int actualLimit = min(limit, static_cast<int>(candidates.size()));
+    partial_sort(
+        candidates.begin(), candidates.begin() + actualLimit, candidates.end(),
+        [](const pair<string, int>& a, const pair<string, int>& b) {
+            if (a.second != b.second) return a.second < b.second;
+            return a.first.size() < b.first.size();
+        });
+    candidates.resize(actualLimit);
+    return candidates;
+}
+
+// ============================================================================
+// removeWord() - remove 1 word from Trie and prune unused nodes
+// ============================================================================
+bool Trie::isEmpty(TrieNode* node) const {
+    for (int i = 0; i < ALPHABET_SIZE; ++i) {
+        if (node->children[i]) return false;
+    }
+    return true;
+}
+
+bool Trie::removeHelper(TrieNode* node, const string& word, int depth) {
+    if (!node) return false;
+
+    if (depth == static_cast<int>(word.size())) {
+        if (!node->isEndOfWord) return false;
+        node->isEndOfWord = false;
+        return isEmpty(node); // Notify parent node whether this node can be pruned
+    }
+
+    // This function is only called after searchExact() has confirmed the word exists,
+    // so word[depth] is guaranteed to be a valid a-z character.
+    int index = charToIndex(word[depth]);
+    if (index == -1 || !node->children[index]) return false;
+
+    bool shouldDeleteChild = removeHelper(node->children[index].get(), word, depth + 1);
+    if (shouldDeleteChild) {
+        node->children[index].reset();
+    }
+
+    return !node->isEndOfWord && isEmpty(node);
+}
+
+bool Trie::removeWord(const string& word) {
+    string cleanWord = normalize(word);
+    if (cleanWord.empty()) return false;
+
+    string tempMeaning;
+    if (!searchExact(cleanWord, tempMeaning)) {
+        return false; // Word does not exist -> nothing to delete
+    }
+
+    removeHelper(root.get(), cleanWord, 0);
+
+    auto it = remove_if(allWords.begin(), allWords.end(),
+                         [&](const WordEntry& e) { return e.word == cleanWord; });
+    if (it != allWords.end()) {
+        allWords.erase(it, allWords.end());
+    }
+
+    return true;
+}
